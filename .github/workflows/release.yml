@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Download dependencies
+        run: go mod tidy
+
+      - name: Set version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Build Linux amd64
+        env:
+          GOOS: linux
+          GOARCH: amd64
+        run: go build -ldflags "-s -w" -o nullpaste-linux-amd64 ./cmd/nullpaste
+
+      - name: Build Linux arm64
+        env:
+          GOOS: linux
+          GOARCH: arm64
+        run: go build -ldflags "-s -w" -o nullpaste-linux-arm64 ./cmd/nullpaste
+
+      - name: Build Windows amd64
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: go build -ldflags "-s -w" -o nullpaste-windows-amd64.exe ./cmd/nullpaste
+
+      - name: Build macOS amd64
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+        run: go build -ldflags "-s -w" -o nullpaste-darwin-amd64 ./cmd/nullpaste
+
+      - name: Build macOS arm64
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+        run: go build -ldflags "-s -w" -o nullpaste-darwin-arm64 ./cmd/nullpaste
+
+      - name: Create checksums
+        run: |
+          echo "${{ env.VERSION }}" > VERSION.txt
+          sha256sum nullpaste-* > nullpaste_SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: Nullpaste ${{ env.VERSION }}
+          body: |
+            ## Nullpaste ${{ env.VERSION }}
+
+            Zero-knowledge paste service with duress password support.
+
+            Download the binary for your platform below.
+
+            **Verify checksums:**
+            ```
+            sha256sum -c nullpaste_SHA256SUMS.txt
+            ```
+          files: |
+            nullpaste-linux-amd64
+            nullpaste-linux-arm64
+            nullpaste-windows-amd64.exe
+            nullpaste-darwin-amd64
+            nullpaste-darwin-arm64
+            nullpaste_SHA256SUMS.txt
+            VERSION.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
