@@ -114,7 +114,10 @@
           </div>
           <div id="delete-token-row" style="display:none; margin-top:8px">
             <p class="result-label">Delete token (save it!):</p>
-            <input type="text" id="delete-token" readonly class="delete-token-input">
+            <div class="link-row">
+              <input type="text" id="delete-token" readonly class="delete-token-input">
+              <button id="delete-from-result-btn" class="btn small" style="border-color:var(--danger);color:var(--danger)">Delete</button>
+            </div>
           </div>
         </div>
 
@@ -129,6 +132,6 @@
     <a href="https://github.com/xEstiwen/nullpaste">Source</a>
   </footer>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

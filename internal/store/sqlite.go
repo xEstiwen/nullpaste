@@ -39,12 +39,17 @@ func (s *SQLite) migrate() error {
 		created_at  DATETIME NOT NULL,
 		expires_at  DATETIME,
 		burn        BOOLEAN NOT NULL DEFAULT 0,
+		burned      BOOLEAN NOT NULL DEFAULT 0,
 		has_duress  BOOLEAN NOT NULL DEFAULT 0,
 		delete_hash TEXT NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_expires ON pastes(expires_at);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	s.db.Exec(`ALTER TABLE pastes ADD COLUMN burned BOOLEAN NOT NULL DEFAULT 0`)
+	return nil
 }
 
 func (s *SQLite) Create(p *model.Paste) (string, error) {
@@ -67,12 +72,12 @@ func (s *SQLite) Create(p *model.Paste) (string, error) {
 
 func (s *SQLite) Get(id string) (*model.Paste, error) {
 	row := s.db.QueryRow(
-		`SELECT id, blob, created_at, expires_at, burn, has_duress FROM pastes WHERE id = ?`,
+		`SELECT id, blob, created_at, expires_at, burn, burned, has_duress FROM pastes WHERE id = ?`,
 		id,
 	)
 	var p model.Paste
 	var expiresAt sql.NullTime
-	err := row.Scan(&p.ID, &p.Blob, &p.CreatedAt, &expiresAt, &p.Burn, &p.HasDuress)
+	err := row.Scan(&p.ID, &p.Blob, &p.CreatedAt, &expiresAt, &p.Burn, &p.Burned, &p.HasDuress)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -83,6 +88,11 @@ func (s *SQLite) Get(id string) (*model.Paste, error) {
 		p.ExpiresAt = expiresAt.Time
 	}
 	return &p, nil
+}
+
+func (s *SQLite) MarkBurned(id string) error {
+	_, err := s.db.Exec(`UPDATE pastes SET burned=1 WHERE id=?`, id)
+	return err
 }
 
 func (s *SQLite) Delete(id string) error {

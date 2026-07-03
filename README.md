@@ -2,17 +2,33 @@
 
 > Zero-knowledge pastebin with plausible deniability built in.
 
-Content is encrypted in your browser using AES-GCM before it ever touches the server. The server stores only opaque encrypted blobs — it cannot read, inspect, or fingerprint your content. A unique **duress password** feature provides deniable encryption: enter one password to reveal the real paste, another to reveal a decoy. To a server or network observer, both look identical.
+Content is encrypted in your browser using AES-GCM before it ever touches the server. The server stores encrypted blobs and metadata (timestamps, burn flags) — it **cannot read the actual content**, it **never sees encryption keys or passwords**, and it has **no way to decrypt** what it stores. A unique **duress password** feature provides deniable encryption: enter one password to reveal the real paste, another to reveal a decoy. To a server or network observer, both look identical.
 
 ## Features
 
-- **Zero-knowledge architecture** — encryption/decryption happens entirely in the browser via Web Crypto API. The server is blind.
-- **Duress / deniable encryption** — optionally set a second password that shows a decoy paste instead of the real one. The server cannot distinguish which password was used.
+- **Zero-knowledge architecture** — encryption/decryption happens entirely in the browser via Web Crypto API. The server stores only encrypted blobs, never plaintext.
+- **Duress / deniable encryption** — optionally set a second password and separate decoy content. The server cannot distinguish which password was used or which content is "real".
 - **Burn after read** — paste is deleted from the server on first access.
 - **TTL auto-expiry** — choose from 5 minutes, 1 hour, 1 day, 7 days, 30 days, or never.
 - **Privacy-first** — no IP logging, no User-Agent storage, no analytics.
+- **Export ciphertext** — encrypt offline and share the ciphertext directly, no server required.
 - **Single binary** — one executable, SQLite embedded, zero external dependencies.
 - **Self-hostable** — runs on Linux, macOS, Windows. Docker and systemd unit included.
+
+## What the server stores
+
+| Data | Stored? | Notes |
+|---|---|---|
+| Encrypted content (AES-GCM 256-bit) | Yes | Opaque blob, server cannot read |
+| Paste ID (128-bit random) | Yes | Public by design, needed for link |
+| Creation & expiry timestamps | Yes | Metadata for TTL auto-delete |
+| Burn-after-read flag | Yes | Boolean, server deletes on first GET |
+| Delete token (SHA-256 hash) | Yes | Can't be reversed |
+| **IP address** | **No** | Stripped at middleware level |
+| **User-Agent** | **No** | Not logged or stored |
+| **Password** | **No** | Never transmitted to server |
+| **Encryption key** | **No** | Never leaves the browser (URL fragment) |
+| **Plaintext content** | **No** | Encrypted before upload |
 
 ## Quick Start
 

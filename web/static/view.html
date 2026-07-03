@@ -30,12 +30,25 @@
         <div id="loading">Loading</div>
 
         <div id="decrypt-section" style="display:block">
-          <div id="password-prompt" style="display:none">
-            <p class="subtitle" style="margin-bottom:0.8rem">Enter the password for this paste.</p>
+          <div id="link-section">
+            <p class="subtitle" style="margin-bottom:0.8rem">Paste a Nullpaste link or enter the paste ID.</p>
             <div class="form-group">
+              <input type="text" id="paste-id-input" placeholder="https://.../p/abc123#k=... or just ID" autocomplete="off">
+            </div>
+            <div id="link-info" style="display:none; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem"></div>
+            <div id="password-field-wrapper" class="form-group" style="display:none">
               <input type="password" id="password" placeholder="Password" autocomplete="off">
             </div>
             <button id="decrypt-btn" class="btn primary">Decrypt</button>
+          </div>
+
+          <!-- hidden password prompt for direct-link flow (/p/:id#p=1) -->
+          <div id="password-prompt" style="display:none">
+            <p class="subtitle" style="margin-bottom:0.8rem">Enter the password for this paste.</p>
+            <div class="form-group">
+              <input type="password" id="direct-password" placeholder="Password" autocomplete="off">
+            </div>
+            <button id="direct-decrypt-btn" class="btn primary">Decrypt</button>
           </div>
 
           <div id="import-section" style="display:none">
@@ -55,6 +68,14 @@
             <span id="expires-badge"></span>
           </div>
           <pre id="decrypted-content"></pre>
+          <div id="delete-paste-section" class="form-group" style="margin-top:1rem; border-top:1px solid var(--border); padding-top:1rem">
+            <label>Delete this paste</label>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">Enter the delete token you received when creating the paste.</p>
+            <div class="link-row">
+              <input type="text" id="delete-token-input" placeholder="Delete token" class="delete-token-input">
+              <button id="delete-paste-btn" class="btn small" style="border-color:var(--danger);color:var(--danger)">Delete</button>
+            </div>
+          </div>
         </div>
 
         <div id="error" class="error-box" style="display:none"></div>
@@ -68,6 +89,6 @@
     <a href="https://github.com/xEstiwen/nullpaste">Source</a>
   </footer>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

@@ -183,6 +183,8 @@ function showContent(content, expiresAt, isDuress) {
   if (pp) pp.style.display = 'none';
   const imp = document.getElementById('import-section');
   if (imp) imp.style.display = 'none';
+  const li = document.getElementById('link-section');
+  if (li) li.style.display = 'none';
   const cv = document.getElementById('content-view');
   if (cv) cv.style.display = 'block';
   const dc = document.getElementById('decrypted-content');
@@ -196,18 +198,32 @@ function showContent(content, expiresAt, isDuress) {
       b.textContent = 'Expires ' + new Date(expiresAt).toLocaleString();
       meta.appendChild(b);
     }
-    if (isDuress) {
-      const b = document.createElement('span');
-      b.className = 'badge duress';
-      b.textContent = 'Decoy paste';
-      meta.prepend(b);
+    // duress badge intentionally hidden — decoy content looks identical to real
+  }
+}
+
+async function deletePaste(id, token) {
+  try {
+    const resp = await fetch('/api/paste/' + id + '?token=' + encodeURIComponent(token), { method: 'DELETE' });
+    if (resp.ok) {
+      document.getElementById('content-view')?.style.display = 'none';
+      document.getElementById('result')?.style.display = 'none';
+      showError('Paste deleted successfully');
+    } else {
+      showError('Failed to delete — invalid token or paste not found');
     }
+  } catch (e) {
+    showError('Delete failed: ' + e.message);
   }
 }
 
 // ====== Index page ======
 
 function initIndex() {
+  // clear form on load
+  const contentEl = document.getElementById('content');
+  if (contentEl) contentEl.value = '';
+
   const pwBtn = document.getElementById('btn-pw-protect');
   const pwSection = document.getElementById('pw-section');
   const password = document.getElementById('password');
@@ -278,6 +294,18 @@ function initIndex() {
         setTimeout(() => { document.getElementById('copy-export-btn').textContent = 'Copy All'; }, 1500);
       });
     }
+  });
+
+  document.getElementById('delete-from-result-btn')?.addEventListener('click', () => {
+    const m = (document.getElementById('share-url')?.value || '').match(/\/p\/([^/#\?]+)/);
+    const token = document.getElementById('delete-token')?.value;
+    if (m && token) deletePaste(m[1], token);
+  });
+
+  document.getElementById('delete-paste-btn')?.addEventListener('click', () => {
+    const id = getPasteID();
+    const token = document.getElementById('delete-token-input')?.value?.trim();
+    if (id && token) deletePaste(id, token);
   });
 
   // tabs: share / export
@@ -412,86 +440,131 @@ async function handleEncrypt() {
 
 // ====== View page ======
 
+function extractID(input) {
+  input = input.trim();
+  // full URL: https://host/p/abc123#k=key
+  const m = input.match(/\/p\/([^/#\?]+)/);
+  if (m) return m[1];
+  // just the ID
+  if (/^[A-Za-z0-9_-]{10,}$/.test(input)) return input;
+  return null;
+}
+
 function initView() {
   const tabOpen = document.getElementById('tab-open');
   const tabImport = document.getElementById('tab-import');
-  const decryptSection = document.getElementById('decrypt-section');
+  const linkSection = document.getElementById('link-section');
   const passwordPrompt = document.getElementById('password-prompt');
   const importSection = document.getElementById('import-section');
+  const pwFieldWrapper = document.getElementById('password-field-wrapper');
+  const pasteIdInput = document.getElementById('paste-id-input');
   const loading = document.getElementById('loading');
 
   if (tabOpen && tabImport) {
     tabOpen.addEventListener('click', () => {
       tabOpen.classList.add('active');
       tabImport.classList.remove('active');
-      passwordPrompt.style.display = 'block';
+      linkSection.style.display = 'block';
+      passwordPrompt.style.display = 'none';
       importSection.style.display = 'none';
     });
     tabImport.addEventListener('click', () => {
       tabImport.classList.add('active');
       tabOpen.classList.remove('active');
       importSection.style.display = 'block';
+      linkSection.style.display = 'none';
       passwordPrompt.style.display = 'none';
     });
   }
 
-  document.getElementById('decrypt-btn')?.addEventListener('click', handleViewPassword);
+  // auto-detect paste type from link
+  if (pasteIdInput && pwFieldWrapper) {
+    const linkInfo = document.getElementById('link-info');
+    pasteIdInput.addEventListener('input', () => {
+      const val = pasteIdInput.value.trim();
+      const id = extractID(val);
+
+      if (val.includes('#k=') && id) {
+        linkInfo.textContent = 'Link-only paste — click Decrypt';
+        linkInfo.style.display = 'block';
+        pwFieldWrapper.style.display = 'none';
+      } else if (val.includes('#p=1') && id) {
+        linkInfo.textContent = 'Password-protected paste — enter password';
+        linkInfo.style.display = 'block';
+        pwFieldWrapper.style.display = 'block';
+      } else {
+        pwFieldWrapper.style.display = id ? 'block' : 'none';
+        linkInfo.style.display = 'none';
+      }
+    });
+  }
+
+  document.getElementById('decrypt-btn')?.addEventListener('click', handleManualDecrypt);
+  document.getElementById('direct-decrypt-btn')?.addEventListener('click', handleDirectDecrypt);
   document.getElementById('import-decrypt-btn')?.addEventListener('click', handleImportDecrypt);
 
-  const ctx = getViewContext();
   if (loading) loading.style.display = 'none';
 
-  if (ctx && ctx.type === 'link') {
-    handleViewLink(ctx.key);
-  } else if (ctx && ctx.type === 'password') {
-    if (passwordPrompt) passwordPrompt.style.display = 'block';
+  const ctx = getViewContext();
+  const directId = getPasteID();
+
+  if (ctx && ctx.type === 'link' && directId) {
+    showContent('Decrypting...', '', false);
+    handleViewLink(ctx.key, directId);
+  } else if (ctx && ctx.type === 'password' && directId) {
+    linkSection.style.display = 'none';
+    passwordPrompt.style.display = 'block';
   } else {
-    // no context, show import tab by default if no hash, else password
-    const hash = location.hash.slice(1);
-    if (!hash && location.pathname === '/static/view.html') {
-      // showing import section
-      if (tabImport) tabImport.click();
-    } else if (passwordPrompt) {
-      passwordPrompt.style.display = 'block';
+    if (!directId && linkSection) {
+      linkSection.style.display = 'block';
+      passwordPrompt.style.display = 'none';
     }
   }
 }
 
-async function handleViewPassword() {
-  const pw = document.getElementById('password').value;
-  if (!pw) return;
-  const id = getPasteID();
-  if (!id) { showError('No paste ID'); return; }
-
-  const btn = document.getElementById('decrypt-btn');
-  btn.disabled = true;
-  btn.textContent = 'Decrypting...';
-  hideError();
-
+async function handleViewLink(keyData, id) {
+  if (!id) return showError('No paste ID');
   try {
     const resp = await fetch(API.read(id));
-    if (!resp.ok) { showError('Paste not found or expired'); return; }
-    const data = await resp.json();
-    const r = await decryptContainerPassword(atob(data.blob), pw);
-    showContent(r.content, data.expires_at, r.isDuress);
-  } catch (e) {
-    showError(e.message || 'Decryption failed');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Decrypt';
-  }
-}
-
-async function handleViewLink(keyData) {
-  const id = getPasteID();
-  if (!id) { showError('No paste ID'); return; }
-
-  try {
-    const resp = await fetch(API.read(id));
-    if (!resp.ok) { showError('Paste not found or expired'); return; }
+    if (resp.status === 410) return showError('This paste was already burned after being read');
+    if (!resp.ok) return showError('Paste not found or expired');
     const data = await resp.json();
     const content = await decryptContainerLinkOnly(atob(data.blob), keyData);
     showContent(content, data.expires_at, false);
+  } catch (e) {
+    showError(e.message || 'Decryption failed');
+  }
+}
+
+async function handleManualDecrypt() {
+  const val = (document.getElementById('paste-id-input')?.value || '').trim();
+  const id = extractID(val);
+  if (!id) return showError('Enter a valid paste link or ID');
+
+  const keyMatch = val.match(/#k=([A-Za-z0-9_-]+)/);
+  if (keyMatch) return handleViewLink(keyMatch[1], id);
+
+  const pw = document.getElementById('password')?.value?.trim();
+  if (!pw) return showError('Enter the password');
+  await decryptPaste(id, pw);
+}
+
+async function handleDirectDecrypt() {
+  const id = getPasteID();
+  const pw = document.getElementById('direct-password')?.value?.trim();
+  if (!id) return showError('No paste ID');
+  if (!pw) return showError('Enter the password');
+  await decryptPaste(id, pw);
+}
+
+async function decryptPaste(id, pw) {
+  try {
+    const resp = await fetch(API.read(id));
+    if (resp.status === 410) return showError('This paste was already burned');
+    if (!resp.ok) return showError('Paste not found or expired');
+    const data = await resp.json();
+    const r = await decryptContainerPassword(atob(data.blob), pw);
+    showContent(r.content, data.expires_at, r.isDuress);
   } catch (e) {
     showError(e.message || 'Decryption failed');
   }
@@ -509,12 +582,10 @@ async function handleImportDecrypt() {
 
   try {
     let jsonStr, result;
-    // try as link-only: key is base64 key data
     if (key && key !== '<password>') {
       const container = atob(ct);
       result = { content: await decryptContainerLinkOnly(container, key), isDuress: false };
     } else {
-      // password mode
       const container = atob(ct);
       const pw = key === '<password>' ? prompt('Enter the password:') : null;
       if (!pw) { showError('Password required'); return; }

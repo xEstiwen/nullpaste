@@ -128,8 +128,8 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		Blob:      blob,
 		CreatedAt: time.Now().UTC(),
 		ExpiresAt: expiresAt,
-		Burn:      req.Burn,
-		HasDuress: req.HasDuress,
+		Burn:      model.ParseBool(req.Burn),
+		HasDuress: model.ParseBool(req.HasDuress),
 	}
 	deleteToken, err := s.store.Create(paste)
 	if err != nil {
@@ -158,6 +158,10 @@ func (s *Server) handleRead(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	if paste.Burned {
+		http.Error(w, "this paste was burned", http.StatusGone)
+		return
+	}
 	if !paste.ExpiresAt.IsZero() && time.Now().After(paste.ExpiresAt) {
 		s.store.Delete(id)
 		http.Error(w, "not found", http.StatusNotFound)
@@ -169,7 +173,8 @@ func (s *Server) handleRead(w http.ResponseWriter, r *http.Request) {
 		Burn:      paste.Burn,
 	}
 	if paste.Burn {
-		s.store.Delete(id)
+		s.store.MarkBurned(id)
+		w.Header().Set("X-Burned", "1")
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
