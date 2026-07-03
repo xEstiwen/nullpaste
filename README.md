@@ -69,6 +69,8 @@ go build -o nullpaste ./cmd/nullpaste
 ./nullpaste
 ```
 
+![Nullpaste screenshot](docs/image.png)
+
 ## Configuration
 
 Environment variables:
@@ -126,7 +128,7 @@ The key lives in the URL fragment (`#k=...`). HTTP servers never see URL fragmen
   |-- decrypt decoy content
 ```
 
-The server stores a single opaque blob. Both wrapped keys are indistinguishable random bytes. The server cannot determine which password was used — neither can a network observer.
+Note: the same container format and duress support apply to **Export Ciphertext mode** (serverless). The entire encryption/decryption happens in the browser, no server required. See [docs/CRYPTO.md](docs/CRYPTO.md) for the full cryptographic design.
 
 ## Tech Stack
 

@@ -593,17 +593,23 @@ async function handleImportDecrypt() {
   hideError();
 
   try {
-    let jsonStr, result;
-    if (key && key !== '<password>') {
-      const container = atob(ct);
-      result = { content: await decryptContainerLinkOnly(container, key), isDuress: false };
-    } else {
-      const container = atob(ct);
-      const pw = key === '<password>' ? prompt('Enter the password:') : null;
+    const container = atob(ct);
+    const parsed = JSON.parse(container);
+
+    if (parsed.m === 1) {
+      // link-only mode
+      if (!key) { showError('Key is required'); return; }
+      const content = await decryptContainerLinkOnly(container, key);
+      showContent(content, null, false);
+    } else if (parsed.m === 2) {
+      // password mode
+      const pw = key && key !== '<password>' ? key : prompt('Enter the password:');
       if (!pw) { showError('Password required'); return; }
-      result = await decryptContainerPassword(container, pw);
+      const result = await decryptContainerPassword(container, pw);
+      showContent(result.content, null, result.isDuress);
+    } else {
+      showError('Unknown container format');
     }
-    showContent(result.content, null, result.isDuress);
   } catch (e) {
     showError(e.message || 'Decryption failed');
   } finally {
