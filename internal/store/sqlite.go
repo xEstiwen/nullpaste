@@ -113,13 +113,17 @@ func (s *SQLite) Close() error {
 	return s.db.Close()
 }
 
-func (s *SQLite) DeleteTokenValid(id, token string) bool {
+func (s *SQLite) DeleteTokenValid(id, tokenStr string) bool {
 	var deleteHash string
 	row := s.db.QueryRow(`SELECT delete_hash FROM pastes WHERE id = ?`, id)
 	if err := row.Scan(&deleteHash); err != nil {
 		return false
 	}
-	h := sha256.Sum256([]byte(token))
+	token, err := base64.RawURLEncoding.DecodeString(tokenStr)
+	if err != nil {
+		return false
+	}
+	h := sha256.Sum256(token)
 	given := base64.RawURLEncoding.EncodeToString(h[:])
 	return given == deleteHash
 }

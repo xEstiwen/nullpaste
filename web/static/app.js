@@ -206,8 +206,10 @@ async function deletePaste(id, token) {
   try {
     const resp = await fetch('/api/paste/' + id + '?token=' + encodeURIComponent(token), { method: 'DELETE' });
     if (resp.ok) {
-      document.getElementById('content-view')?.style.display = 'none';
-      document.getElementById('result')?.style.display = 'none';
+      const cv = document.getElementById('content-view');
+      if (cv) cv.style.display = 'none';
+      const r = document.getElementById('result');
+      if (r) r.style.display = 'none';
       showError('Paste deleted successfully');
     } else {
       showError('Failed to delete — invalid token or paste not found');
@@ -300,12 +302,6 @@ function initIndex() {
     const m = (document.getElementById('share-url')?.value || '').match(/\/p\/([^/#\?]+)/);
     const token = document.getElementById('delete-token')?.value;
     if (m && token) deletePaste(m[1], token);
-  });
-
-  document.getElementById('delete-paste-btn')?.addEventListener('click', () => {
-    const id = getPasteID();
-    const token = document.getElementById('delete-token-input')?.value?.trim();
-    if (id && token) deletePaste(id, token);
   });
 
   // tabs: share / export
@@ -503,6 +499,16 @@ function initView() {
   document.getElementById('direct-decrypt-btn')?.addEventListener('click', handleDirectDecrypt);
   document.getElementById('import-decrypt-btn')?.addEventListener('click', handleImportDecrypt);
 
+  document.getElementById('delete-paste-btn')?.addEventListener('click', () => {
+    let id = getPasteID();
+    if (!id) {
+      const val = (document.getElementById('paste-id-input')?.value || '').trim();
+      id = extractID(val) || document.body.dataset.pasteId;
+    }
+    const token = document.getElementById('delete-token-input')?.value?.trim();
+    if (id && token) deletePaste(id, token);
+  });
+
   if (loading) loading.style.display = 'none';
 
   const ctx = getViewContext();
@@ -524,6 +530,7 @@ function initView() {
 
 async function handleViewLink(keyData, id) {
   if (!id) return showError('No paste ID');
+  document.body.dataset.pasteId = id;
   try {
     const resp = await fetch(API.read(id));
     if (resp.status === 410) return showError('This paste was already burned after being read');
@@ -540,6 +547,7 @@ async function handleManualDecrypt() {
   const val = (document.getElementById('paste-id-input')?.value || '').trim();
   const id = extractID(val);
   if (!id) return showError('Enter a valid paste link or ID');
+  document.body.dataset.pasteId = id;
 
   const keyMatch = val.match(/#k=([A-Za-z0-9_-]+)/);
   if (keyMatch) return handleViewLink(keyMatch[1], id);
@@ -554,6 +562,7 @@ async function handleDirectDecrypt() {
   const pw = document.getElementById('direct-password')?.value?.trim();
   if (!id) return showError('No paste ID');
   if (!pw) return showError('Enter the password');
+  document.body.dataset.pasteId = id;
   await decryptPaste(id, pw);
 }
 

@@ -22,9 +22,10 @@ Content is encrypted in your browser using AES-GCM before it ever touches the se
 | Encrypted content (AES-GCM 256-bit) | Yes | Opaque blob, server cannot read |
 | Paste ID (128-bit random) | Yes | Public by design, needed for link |
 | Creation & expiry timestamps | Yes | Metadata for TTL auto-delete |
-| Burn-after-read flag | Yes | Boolean, server deletes on first GET |
-| Delete token (SHA-256 hash) | Yes | Can't be reversed |
-| **IP address** | **No** | Stripped at middleware level |
+| Burn-after-read flag | Yes | Boolean, paste is marked burned after first read |
+| Burned status | Yes | Returns 410 Gone on subsequent reads |
+| Delete token (SHA-256 hash) | Yes | Hash of raw token bytes, not reversible |
+| **IP address** | **No** | Stripped at handler level |
 | **User-Agent** | **No** | Not logged or stored |
 | **Password** | **No** | Never transmitted to server |
 | **Encryption key** | **No** | Never leaves the browser (URL fragment) |
@@ -89,11 +90,12 @@ Environment variables:
    |                                  |
    |-- generate random 256-bit key --|
    |-- encrypt content (AES-GCM) ---->|
-   |-- store blob ------------------>|
-   |-- redirect /p/id#k=base64(key) -|
+   |-- POST encrypted blob --------->|
+   |<-- { id, url } ----------------|
+   |-- serve /p/id#k=base64(key) ----|
 ```
 
-The key lives in the URL fragment (`#k=...`). HTTP servers never see URL fragments, so the key never touches the network.
+The key lives in the URL fragment (`#k=...`). HTTP servers never see URL fragments, so the key never touches the network. The view page is served at `/p/:id`, preserving the fragment in the browser.
 
 ### Password + Duress Mode
 
@@ -183,23 +185,24 @@ Response 204: No Content
 
 - **Offline brute-force:** Because decryption is client-side, anyone who obtains the encrypted blob can attempt offline brute-force. Defense: choose a strong password. 600,000 PBKDF2 iterations slow down attacks significantly.
 - **Duress password strength:** Your duress password should be as strong as your real password. An attacker who reads the open-source client code can identify the two ciphertexts, but cannot prove which is real without the passwords.
-- **Burn-after-read:** The paste is deleted on the first GET request that returns the blob. A failed decryption attempt (wrong key) still burns the paste — this is a deliberate trade-off for server-side simplicity.
+- **Burn-after-read:** The paste is returned on the first GET, then marked as `burned`. A second GET returns 410 Gone. A failed decryption attempt (wrong key) still burns the paste — this is a deliberate trade-off for server-side simplicity.
 - **No IP logging:** `X-Forwarded-For`, `X-Real-IP`, and `CF-Connecting-IP` headers are stripped from all requests.
 
 ## Architecture
 
 ```mermaid
-graph LR
-    A["Browser<br/>(Encryption)"] -->|POST /api/paste| B["Go Server"]
+graph TD
+    A["Browser<br/>(Encrypt)"] -->|POST /api/paste| B["Go Server"]
     B --> C["SQLite"]
-    B --> D[("Blob Storage")]
-    C -->|id lookup| D
-    D -->|opaque blob| B
+    B -->|opaque blob| C
+    C -->|blob lookup| B
     B -->|blob| A
 
-    A1["Visitor"] -->|GET /p/:id#k=key| B
-    B -->|blob| A1
-    A1 -->|"decrypt (AES-GCM)"| A1
+    V["Visitor"] -->|GET /p/:id#k=key| B
+    B -->|serve view.html| V
+    V -->|fetch blob| B
+    B -->|blob| V
+    V -->|"decrypt (AES-GCM)"| V
 ```
 
 ## License
