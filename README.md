@@ -47,11 +47,14 @@ open http://localhost:8080
 
 ### Docker
 
+Build and run:
+
 ```bash
+docker build -t nullpaste .
 docker run -d --name nullpaste \
   -p 8080:8080 \
   -v nullpaste-data:/data \
-  xestiwennullpaste:latest
+  nullpaste
 ```
 
 Or with `docker-compose`:
