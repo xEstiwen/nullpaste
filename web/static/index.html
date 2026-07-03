@@ -3,76 +3,131 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nullpaste — Zero-Knowledge Paste</title>
+  <title>Nullpaste</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+  <nav>
+    <a href="/" class="logo">Nullpaste</a>
+    <div class="nav-links">
+      <a href="/">Create</a>
+      <a href="/static/view.html">Decrypt</a>
+      <a href="https://github.com/xEstiwen/nullpaste" target="_blank">Source</a>
+    </div>
+  </nav>
+
   <div class="container">
-    <header>
-      <h1>Nullpaste</h1>
-      <p class="subtitle">Zero-knowledge pastebin. Content is encrypted in your browser. Server sees nothing.</p>
-    </header>
+    <div class="main-layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <span class="sidebar-label">Mode</span>
+          <button class="sidebar-btn active" id="tab-link">Share link</button>
+          <button class="sidebar-btn" id="tab-export">Export ciphertext</button>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-label">Protection</span>
+          <button class="sidebar-btn" id="btn-pw-protect">Password protect</button>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-label">Security</span>
+          <div class="sidebar-hint">Encrypted in browser. Server never sees the content or keys.</div>
+        </div>
+      </aside>
 
-    <main>
-      <div class="form-group">
-        <label for="content">Paste content</label>
-        <textarea id="content" rows="12" placeholder="Paste your text here..." spellcheck="false"></textarea>
-      </div>
-
-      <div class="form-row">
+      <main>
         <div class="form-group">
-          <label for="password">Password <span class="optional">(optional)</span></label>
-          <input type="password" id="password" placeholder="Leave empty for link-only">
+          <label for="content">Paste content</label>
+          <textarea id="content" rows="10" placeholder="Paste your text here..." spellcheck="false"></textarea>
         </div>
-        <div class="form-group" id="duress-group" style="display:none">
-          <label for="duress-password">Duress password <span class="optional">(optional)</span></label>
-          <input type="password" id="duress-password" placeholder="Shows fake content if entered">
-        </div>
-      </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label for="ttl">Auto-delete after</label>
-          <select id="ttl">
-            <option value="5m">5 minutes</option>
-            <option value="1h">1 hour</option>
-            <option value="1d">1 day</option>
-            <option value="7d" selected>7 days</option>
-            <option value="30d">30 days</option>
-            <option value="never">Never</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="burn">
-            <span>Burn after read</span>
-          </label>
-        </div>
-      </div>
+        <div id="pw-section" class="collapsible" style="display:none">
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Required to decrypt" autocomplete="new-password">
+            <div class="field-hint">Without a password, anyone with the link can read the paste.</div>
+          </div>
 
-      <button id="create-btn" class="btn primary">Create Paste</button>
+          <div id="duress-section" class="nested" style="display:none">
+            <label class="checkbox-label">
+              <input type="checkbox" id="enable-duress">
+              <span>Enable duress protection</span>
+            </label>
 
-      <div id="result" class="result-box" style="display:none">
-        <p class="result-label">Share this link:</p>
-        <div class="link-row">
-          <input type="text" id="share-url" readonly>
-          <button id="copy-btn" class="btn small">Copy</button>
+            <div id="duress-fields" class="collapsible" style="display:none">
+              <div class="form-group">
+                <label for="duress-password">Duress password</label>
+                <input type="password" id="duress-password" placeholder="Password that reveals decoy" autocomplete="new-password">
+              </div>
+              <div class="form-group">
+                <label for="duress-content">Decoy content</label>
+                <textarea id="duress-content" rows="4" placeholder="Fake content shown when duress password is entered..." spellcheck="false"></textarea>
+                <div class="field-hint">Under coercion, entering the duress password shows this fake content instead of the real paste.</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div id="delete-token-row" style="display:none; margin-top:8px">
-          <p class="result-label">Delete token (save it!):</p>
-          <input type="text" id="delete-token" readonly class="delete-token-input">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="ttl">Auto-delete</label>
+            <select id="ttl">
+              <option value="5m">5 min</option>
+              <option value="1h">1 hour</option>
+              <option value="1d">1 day</option>
+              <option value="7d" selected>7 days</option>
+              <option value="30d">30 days</option>
+              <option value="never">Never</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="burn">
+              <span>Burn after read</span>
+            </label>
+          </div>
         </div>
-      </div>
 
-      <div id="error" class="error-box" style="display:none"></div>
-    </main>
+        <div id="create-section">
+          <button id="create-btn" class="btn primary">Create Paste</button>
+        </div>
 
-    <footer>
-      <a href="https://github.com/xEstiwen/nullpaste">Source</a>
-      <span class="sep">·</span>
-      <span>Content encrypted in browser. Server cannot read it.</span>
-    </footer>
+        <div id="export-section" style="display:none">
+          <button id="encrypt-btn" class="btn primary">Encrypt</button>
+        </div>
+
+        <div id="result" class="result-box" style="display:none">
+          <div id="result-link">
+            <p class="result-label">Share link:</p>
+            <div class="link-row">
+              <input type="text" id="share-url" readonly>
+              <button id="copy-btn" class="btn small">Copy</button>
+            </div>
+          </div>
+          <div id="result-export" style="display:none">
+            <p class="result-label">Encrypted ciphertext:</p>
+            <textarea id="export-ciphertext" readonly rows="5"></textarea>
+            <div class="export-key-row">
+              <span class="result-label">Key:</span>
+              <input type="text" id="export-key" readonly>
+            </div>
+            <button id="copy-export-btn" class="btn small">Copy All</button>
+          </div>
+          <div id="delete-token-row" style="display:none; margin-top:8px">
+            <p class="result-label">Delete token (save it!):</p>
+            <input type="text" id="delete-token" readonly class="delete-token-input">
+          </div>
+        </div>
+
+        <div id="error" class="error-box" style="display:none"></div>
+      </main>
+    </div>
   </div>
+
+  <footer>
+    <span>Encrypted in browser · Zero-knowledge</span>
+    <span class="sep">·</span>
+    <a href="https://github.com/xEstiwen/nullpaste">Source</a>
+  </footer>
 
   <script src="/static/app.js"></script>
 </body>

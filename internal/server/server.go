@@ -61,8 +61,15 @@ func (s *Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) serveView(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	http.Redirect(w, r, "/static/view.html#"+id, http.StatusFound)
+	content, err := web.StaticFiles.ReadFile("static/view.html")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+	w.Write(content)
 }
 
 func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {

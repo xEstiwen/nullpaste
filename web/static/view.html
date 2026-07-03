@@ -3,41 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nullpaste — View Paste</title>
+  <title>Nullpaste — View</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+  <nav>
+    <a href="/" class="logo">Nullpaste</a>
+    <div class="nav-links">
+      <a href="/">Create</a>
+      <a href="/static/view.html">Decrypt</a>
+      <a href="https://github.com/xEstiwen/nullpaste" target="_blank">Source</a>
+    </div>
+  </nav>
+
   <div class="container">
-    <header>
-      <h1>Nullpaste</h1>
-    </header>
-
-    <main>
-      <div id="password-prompt" style="display:none">
-        <p class="subtitle">This paste is password-protected.</p>
-        <div class="form-group">
-          <input type="password" id="password" placeholder="Enter password">
+    <div class="main-layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <span class="sidebar-label">Decrypt</span>
+          <button class="sidebar-btn active" id="tab-open">From link</button>
+          <button class="sidebar-btn" id="tab-import">From ciphertext</button>
         </div>
-        <button id="decrypt-btn" class="btn primary">Decrypt</button>
-      </div>
+      </aside>
 
-      <div id="content-view" style="display:none">
-        <div class="content-meta">
-          <span id="expires-badge"></span>
+      <main>
+        <div id="loading">Loading</div>
+
+        <div id="decrypt-section" style="display:block">
+          <div id="password-prompt" style="display:none">
+            <p class="subtitle" style="margin-bottom:0.8rem">Enter the password for this paste.</p>
+            <div class="form-group">
+              <input type="password" id="password" placeholder="Password" autocomplete="off">
+            </div>
+            <button id="decrypt-btn" class="btn primary">Decrypt</button>
+          </div>
+
+          <div id="import-section" style="display:none">
+            <p class="subtitle" style="margin-bottom:0.8rem">Paste the encrypted ciphertext below.</p>
+            <div class="form-group">
+              <textarea id="import-ciphertext" rows="5" placeholder="Paste ciphertext here..." spellcheck="false"></textarea>
+            </div>
+            <div class="form-group">
+              <input type="text" id="import-key" placeholder="Key (base64)">
+            </div>
+            <button id="import-decrypt-btn" class="btn primary">Decrypt from text</button>
+          </div>
         </div>
-        <pre id="decrypted-content"></pre>
-      </div>
 
-      <div id="loading">Loading...</div>
-      <div id="error" class="error-box" style="display:none"></div>
-    </main>
+        <div id="content-view" style="display:none">
+          <div class="content-meta">
+            <span id="expires-badge"></span>
+          </div>
+          <pre id="decrypted-content"></pre>
+        </div>
 
-    <footer>
-      <a href="https://github.com/xEstiwen/nullpaste">Source</a>
-      <span class="sep">·</span>
-      <span>Content encrypted in browser. Server cannot read it.</span>
-    </footer>
+        <div id="error" class="error-box" style="display:none"></div>
+      </main>
+    </div>
   </div>
+
+  <footer>
+    <span>Encrypted in browser · Zero-knowledge</span>
+    <span class="sep">·</span>
+    <a href="https://github.com/xEstiwen/nullpaste">Source</a>
+  </footer>
 
   <script src="/static/app.js"></script>
 </body>
