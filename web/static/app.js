@@ -311,17 +311,20 @@ function initIndex() {
   const exportSection = document.getElementById('export-section');
 
   if (tabLink && tabExport) {
+    const ttlRow = document.getElementById('ttl-burn-row');
     tabLink.addEventListener('click', () => {
       tabLink.classList.add('active');
       tabExport.classList.remove('active');
       createSection.style.display = 'block';
       exportSection.style.display = 'none';
+      if (ttlRow) ttlRow.style.display = 'flex';
     });
     tabExport.addEventListener('click', () => {
       tabExport.classList.add('active');
       tabLink.classList.remove('active');
       createSection.style.display = 'none';
       exportSection.style.display = 'block';
+      if (ttlRow) ttlRow.style.display = 'none';
     });
   }
 }
