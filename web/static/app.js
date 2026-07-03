@@ -12,10 +12,6 @@ const API = {
   read: (id) => `/api/paste/${id}`,
 };
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
 function buf2base64url(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -43,8 +39,9 @@ async function deriveKey(password, salt) {
     'raw', new TextEncoder().encode(password),
     'PBKDF2', false, ['deriveKey']
   );
+  const saltBytes = typeof salt === 'string' ? base64url2buf(salt) : salt;
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: saltBytes, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     keyMaterial,
     { name: ALGORITHM, length: KEY_LENGTH },
     false,
@@ -57,8 +54,9 @@ async function deriveWrapKey(password, salt) {
     'raw', new TextEncoder().encode(password),
     'PBKDF2', false, ['deriveKey']
   );
+  const saltBytes = typeof salt === 'string' ? base64url2buf(salt) : salt;
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: saltBytes, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     keyMaterial,
     { name: 'AES-KW', length: KEY_LENGTH },
     false,
@@ -121,14 +119,14 @@ async function importKey(keyData) {
 }
 
 async function buildContainerPassword(content, password, duressPassword) {
-  const saltReal = buf2base64url(crypto.getRandomValues(new Uint8Array(SALT_LENGTH)));
-  const saltDecoy = duressPassword ? buf2base64url(crypto.getRandomValues(new Uint8Array(SALT_LENGTH))) : null;
+  const saltReal = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const saltDecoy = duressPassword ? crypto.getRandomValues(new Uint8Array(SALT_LENGTH)) : null;
 
   const contentKeyReal = await generateKey();
   const contentKeyDecoy = duressPassword ? await generateKey() : null;
 
-  const encryptedReal = buf2base64url(await encrypt(contentKeyReal, content));
-  const encryptedDecoy = duressPassword ? buf2base64url(await encrypt(contentKeyDecoy, content)) : null;
+  const encryptedReal = await encrypt(contentKeyReal, content);
+  const encryptedDecoy = duressPassword ? await encrypt(contentKeyDecoy, content) : null;
 
   const wrapKeyReal = await deriveWrapKey(password, saltReal);
   const wrappedReal = await wrapKey(wrapKeyReal, contentKeyReal);
@@ -142,8 +140,8 @@ async function buildContainerPassword(content, password, duressPassword) {
   const container = {
     v: CONTAINER_VERSION,
     m: MODE_PASSWORD,
-    s: { r: saltReal, d: saltDecoy },
-    c: { r: encryptedReal, d: encryptedDecoy },
+    s: { r: buf2base64url(saltReal), d: duressPassword ? buf2base64url(saltDecoy) : null },
+    c: { r: buf2base64url(encryptedReal), d: duressPassword ? buf2base64url(encryptedDecoy) : null },
     w: { r: wrappedReal, d: wrappedDecoy },
     p: duressPassword ? 1 : 0,
   };
@@ -153,8 +151,8 @@ async function buildContainerPassword(content, password, duressPassword) {
 
 async function decryptContainerPassword(jsonStr, password) {
   const c = JSON.parse(jsonStr);
-  assert(c.v === CONTAINER_VERSION, 'unknown container version');
-  assert(c.m === MODE_PASSWORD, 'not a password-protected container');
+  if (c.v !== CONTAINER_VERSION) throw new Error('unknown container version');
+  if (c.m !== MODE_PASSWORD) throw new Error('not a password-protected container');
 
   try {
     const wrapKeyReal = await deriveWrapKey(password, c.s.r);
@@ -178,19 +176,19 @@ async function decryptContainerPassword(jsonStr, password) {
 
 async function buildContainerLinkOnly(content) {
   const key = await generateKey();
-  const encrypted = buf2base64url(await encrypt(key, content));
+  const encrypted = await encrypt(key, content);
   const container = {
     v: CONTAINER_VERSION,
     m: MODE_LINKONLY,
-    c: encrypted,
+    c: buf2base64url(encrypted),
   };
   return { container: JSON.stringify(container), keyData: await exportKey(key) };
 }
 
 async function decryptContainerLinkOnly(jsonStr, keyData) {
   const c = JSON.parse(jsonStr);
-  assert(c.v === CONTAINER_VERSION, 'unknown container version');
-  assert(c.m === MODE_LINKONLY, 'not a link-only container');
+  if (c.v !== CONTAINER_VERSION) throw new Error('unknown container version');
+  if (c.m !== MODE_LINKONLY) throw new Error('not a link-only container');
   const key = await importKey(keyData);
   return decrypt(key, base64url2buf(c.c));
 }
@@ -237,22 +235,26 @@ async function handleCreate() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blob, ttl, burn, has_duress: !!duressPassword }),
     });
+
     if (!resp.ok) {
       const err = await resp.text();
       showError('Server error: ' + err);
       return;
     }
+
     const data = await resp.json();
     const finalUrl = shareUrl.replace('{{id}}', data.id);
     document.getElementById('share-url').value = finalUrl;
+
     if (data.delete_token) {
       document.getElementById('delete-token').value = data.delete_token;
       document.getElementById('delete-token-row').style.display = 'block';
     }
+
     document.getElementById('result').style.display = 'block';
     document.getElementById('error').style.display = 'none';
   } catch (e) {
-    showError(e.message);
+    showError(e.message || 'Encryption failed');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Create Paste';
@@ -263,6 +265,7 @@ function showError(msg) {
   const el = document.getElementById('error');
   el.textContent = msg;
   el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function initIndex() {
@@ -291,14 +294,17 @@ async function handleViewPassword() {
 
   try {
     const id = location.hash.slice(1);
+    if (!id) { showError('No paste ID'); return; }
+
     const resp = await fetch(API.read(id));
     if (!resp.ok) { showError('Paste not found or expired'); return; }
+
     const data = await resp.json();
     const jsonStr = atob(data.blob);
     const result = await decryptContainerPassword(jsonStr, password);
     showContent(result.content, data.expires_at, result.isDuress);
   } catch (e) {
-    showError('Decryption failed: ' + e.message);
+    showError(e.message || 'Decryption failed');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Decrypt';
@@ -308,14 +314,17 @@ async function handleViewPassword() {
 async function handleViewLink(keyData) {
   try {
     const id = location.hash.slice(1);
+    if (!id) { showError('No paste ID'); return; }
+
     const resp = await fetch(API.read(id));
     if (!resp.ok) { showError('Paste not found or expired'); return; }
+
     const data = await resp.json();
     const jsonStr = atob(data.blob);
     const content = await decryptContainerLinkOnly(jsonStr, keyData);
     showContent(content, data.expires_at, false);
   } catch (e) {
-    showError('Decryption failed: ' + e.message);
+    showError(e.message || 'Decryption failed');
   }
 }
 
@@ -324,8 +333,9 @@ function showContent(content, expiresAt, isDuress) {
   document.getElementById('password-prompt').style.display = 'none';
   document.getElementById('content-view').style.display = 'block';
   document.getElementById('decrypted-content').textContent = content;
+
   const meta = document.querySelector('.content-meta');
-  if (expiresAt) {
+  if (expiresAt && expiresAt !== '0001-01-01T00:00:00Z') {
     const exp = new Date(expiresAt);
     const badge = document.createElement('span');
     badge.className = 'badge';
@@ -343,10 +353,12 @@ function showContent(content, expiresAt, isDuress) {
 function initView() {
   const ctx = getViewContext();
   document.getElementById('loading').style.display = 'none';
+
   if (!ctx) {
     document.getElementById('password-prompt').style.display = 'block';
     return;
   }
+
   if (ctx.type === 'link') {
     handleViewLink(ctx.key);
   } else {

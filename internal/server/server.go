@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"nullpaste/internal/config"
@@ -194,7 +195,18 @@ func parseTTL(ttl string, fallback time.Duration) (time.Time, bool) {
 	if ttl == "" || ttl == "never" {
 		return time.Time{}, true
 	}
-	d, err := time.ParseDuration(ttl)
+	var d time.Duration
+	var err error
+	if len(ttl) > 0 && ttl[len(ttl)-1] == 'd' {
+		n := ttl[:len(ttl)-1]
+		var days int
+		days, err = strconv.Atoi(n)
+		if err == nil {
+			d = time.Duration(days) * 24 * time.Hour
+		}
+	} else {
+		d, err = time.ParseDuration(ttl)
+	}
 	if err != nil || d <= 0 {
 		return time.Time{}, false
 	}
