@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nullpaste — Zero-Knowledge Paste</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Nullpaste</h1>
+      <p class="subtitle">Zero-knowledge pastebin. Content is encrypted in your browser. Server sees nothing.</p>
+    </header>
+
+    <main>
+      <div class="form-group">
+        <label for="content">Paste content</label>
+        <textarea id="content" rows="12" placeholder="Paste your text here..." spellcheck="false"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="password">Password <span class="optional">(optional)</span></label>
+          <input type="password" id="password" placeholder="Leave empty for link-only">
+        </div>
+        <div class="form-group" id="duress-group" style="display:none">
+          <label for="duress-password">Duress password <span class="optional">(optional)</span></label>
+          <input type="password" id="duress-password" placeholder="Shows fake content if entered">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ttl">Auto-delete after</label>
+          <select id="ttl">
+            <option value="5m">5 minutes</option>
+            <option value="1h">1 hour</option>
+            <option value="1d">1 day</option>
+            <option value="7d" selected>7 days</option>
+            <option value="30d">30 days</option>
+            <option value="never">Never</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="burn">
+            <span>Burn after read</span>
+          </label>
+        </div>
+      </div>
+
+      <button id="create-btn" class="btn primary">Create Paste</button>
+
+      <div id="result" class="result-box" style="display:none">
+        <p class="result-label">Share this link:</p>
+        <div class="link-row">
+          <input type="text" id="share-url" readonly>
+          <button id="copy-btn" class="btn small">Copy</button>
+        </div>
+        <div id="delete-token-row" style="display:none; margin-top:8px">
+          <p class="result-label">Delete token (save it!):</p>
+          <input type="text" id="delete-token" readonly class="delete-token-input">
+        </div>
+      </div>
+
+      <div id="error" class="error-box" style="display:none"></div>
+    </main>
+
+    <footer>
+      <a href="https://github.com/xEstiwen/nullpaste">Source</a>
+      <span class="sep">·</span>
+      <span>Content encrypted in browser. Server cannot read it.</span>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nullpaste — View Paste</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Nullpaste</h1>
+    </header>
+
+    <main>
+      <div id="password-prompt" style="display:none">
+        <p class="subtitle">This paste is password-protected.</p>
+        <div class="form-group">
+          <input type="password" id="password" placeholder="Enter password">
+        </div>
+        <button id="decrypt-btn" class="btn primary">Decrypt</button>
+      </div>
+
+      <div id="content-view" style="display:none">
+        <div class="content-meta">
+          <span id="expires-badge"></span>
+        </div>
+        <pre id="decrypted-content"></pre>
+      </div>
+
+      <div id="loading">Loading...</div>
+      <div id="error" class="error-box" style="display:none"></div>
+    </main>
+
+    <footer>
+      <a href="https://github.com/xEstiwen/nullpaste">Source</a>
+      <span class="sep">·</span>
+      <span>Content encrypted in browser. Server cannot read it.</span>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

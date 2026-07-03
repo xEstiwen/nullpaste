@@ -1,0 +1,16 @@
+services:
+  nullpaste:
+    build: .
+    image: xestiwennullpaste:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - nullpaste-data:/data
+    environment:
+      - NULLPASTE_DB_PATH=/data/nullpaste.db
+      - NULLPASTE_DEFAULT_TTL=168h
+      - NULLPASTE_GC_INTERVAL=1h
+
+volumes:
+  nullpaste-data:

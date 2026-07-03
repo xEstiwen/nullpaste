@@ -1,0 +1,36 @@
+[Unit]
+Description=Nullpaste - Zero-knowledge paste service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nullpaste --addr :8080 --db-path /var/lib/nullpaste/nullpaste.db
+Restart=on-failure
+RestartSec=5s
+User=nullpaste
+Group=nullpaste
+
+RuntimeDirectory=nullpaste
+RuntimeDirectoryMode=0755
+StateDirectory=nullpaste
+StateDirectoryMode=0750
+
+HardeningOptions=ProtectSystem=strict
+ProtectSystem=strict
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHostname=true
+ProtectClock=true
+ProtectDevice=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+
+ReadWritePaths=/var/lib/nullpaste
+
+[Install]
+WantedBy=multi-user.target
