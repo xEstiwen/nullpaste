@@ -1,5 +1,8 @@
 # Nullpaste
 
+[![CI](https://github.com/xEstiwen/nullpaste/actions/workflows/ci.yml/badge.svg)](https://github.com/xEstiwen/nullpaste/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+
 > Zero-knowledge pastebin with plausible deniability built in.
 
 Content is encrypted in your browser using AES-GCM before it ever touches the server. The server stores encrypted blobs and metadata (timestamps, burn flags) — it **cannot read the actual content**, it **never sees encryption keys or passwords**, and it has **no way to decrypt** what it stores. A unique **duress password** feature provides deniable encryption: enter one password to reveal the real paste, another to reveal a decoy. To a server or network observer, both look identical.
@@ -8,7 +11,7 @@ Content is encrypted in your browser using AES-GCM before it ever touches the se
 
 - **Zero-knowledge architecture** — encryption/decryption happens entirely in the browser via Web Crypto API. The server stores only encrypted blobs, never plaintext.
 - **Duress / deniable encryption** — optionally set a second password and separate decoy content. The server cannot distinguish which password was used or which content is "real".
-- **Burn after read** — paste is deleted from the server on first access.
+- **Burn after read** — the first successful read claims the paste atomically and the server discards the ciphertext. Concurrent readers get `410 Gone`.
 - **TTL auto-expiry** — choose from 5 minutes, 1 hour, 1 day, 7 days, 30 days, or never.
 - **Privacy-first** — no IP logging, no User-Agent storage, no analytics.
 - **Export ciphertext** — encrypt offline and share the ciphertext directly, no server required.
@@ -23,7 +26,7 @@ Content is encrypted in your browser using AES-GCM before it ever touches the se
 | Paste ID (128-bit random) | Yes | Public by design, needed for link |
 | Creation & expiry timestamps | Yes | Metadata for TTL auto-delete |
 | Burn-after-read flag | Yes | Boolean, paste is marked burned after first read |
-| Burned status | Yes | Returns 410 Gone on subsequent reads |
+| Burned status | Yes | Returns 410 Gone on subsequent reads; the ciphertext itself is wiped |
 | Delete token (SHA-256 hash) | Yes | Hash of raw token bytes, not reversible |
 | **IP address** | **No** | Stripped at handler level |
 | **User-Agent** | **No** | Not logged or stored |
@@ -39,7 +42,10 @@ Download from [Releases](https://github.com/xEstiwen/nullpaste/releases) or buil
 
 ```bash
 # Run
-./nullpaste
+./nullpaste --addr :8080 --db-path nullpaste.db
+
+# Print the version
+./nullpaste --version
 
 # Open in browser
 open http://localhost:8080
@@ -76,14 +82,14 @@ go build -o nullpaste ./cmd/nullpaste
 
 ## Configuration
 
-Environment variables:
+Flags: `--addr`, `--db-path`, `--version`. Everything else is set through environment variables, which also provide the defaults for the flags:
 
 | Variable | Default | Description |
 |---|---|---|
 | `NULLPASTE_ADDR` | `:8080` | Listen address |
 | `NULLPASTE_DB_PATH` | `nullpaste.db` | SQLite database path |
 | `NULLPASTE_MAXBYTES` | `262144` | Max paste size in bytes (256 KiB default) |
-| `NULLPASTE_DEFAULT_TTL` | `168h` | Default TTL (7 days) |
+| `NULLPASTE_DEFAULT_TTL` | `168h` | TTL used when a request does not send one (7 days) |
 | `NULLPASTE_GC_INTERVAL` | `1h` | Garbage collection interval |
 
 ## How It Works
@@ -157,7 +163,7 @@ Content-Type: application/json
   "has_duress": false
 }
 
-Response 201:
+Response 200:
 {
   "id": "paste_id",
   "url": "/p/paste_id",
@@ -191,7 +197,19 @@ Response 204: No Content
 - **Offline brute-force:** Because decryption is client-side, anyone who obtains the encrypted blob can attempt offline brute-force. Defense: choose a strong password. 600,000 PBKDF2 iterations slow down attacks significantly.
 - **Duress password strength:** Your duress password should be as strong as your real password. An attacker who reads the open-source client code can identify the two ciphertexts, but cannot prove which is real without the passwords.
 - **Burn-after-read:** The paste is returned on the first GET, then marked as `burned`. A second GET returns 410 Gone. A failed decryption attempt (wrong key) still burns the paste — this is a deliberate trade-off for server-side simplicity.
+- **Request limits:** the body is capped at the base64 size of `NULLPASTE_MAXBYTES` plus a small envelope, including chunked uploads. The server has read/write/idle timeouts and shuts down gracefully on SIGINT/SIGTERM.
+- **Browser hardening:** the CSP forbids inline and third-party scripts, and responses carry `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` and (for the API) `Cache-Control: no-store`.
 - **No IP logging:** `X-Forwarded-For`, `X-Real-IP`, and `CF-Connecting-IP` headers are stripped from all requests.
+
+## Development
+
+```bash
+go test ./...            # unit and HTTP tests
+go test -race ./...      # needs cgo
+golangci-lint run
+```
+
+CI runs the same checks plus `govulncheck`, a `go mod tidy` diff check and a Docker smoke test. See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md). Vulnerability reports: [SECURITY.md](SECURITY.md).
 
 ## Architecture
 
