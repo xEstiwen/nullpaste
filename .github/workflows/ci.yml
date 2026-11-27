@@ -6,68 +6,106 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        go-version: ['1.23', '1.24']
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Go
-        uses: actions/setup-go@v5
+      # The Go version comes from go.mod so CI and local builds cannot drift.
+      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version-file: go.mod
 
-      - name: Download dependencies
-        run: go mod tidy
+      - name: Verify go.mod and go.sum are tidy
+        if: matrix.os == 'ubuntu-latest'
+        run: go mod tidy -diff
 
-      - name: Build
-        run: go build -o nullpaste ./cmd/nullpaste
+      - name: Vet
+        run: go vet ./...
 
-      - name: Run tests
-        run: go test ./...
+      - name: Test
+        if: matrix.os != 'ubuntu-latest'
+        run: go test -count=1 ./...
+
+      - name: Test with race detector and coverage
+        if: matrix.os == 'ubuntu-latest'
+        run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Coverage summary
+        if: matrix.os == 'ubuntu-latest'
+        run: go tool cover -func=coverage.out | tail -n 1
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
+  vulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t nullpaste:ci .
+
+      - name: Image starts and serves requests
+        run: |
+          docker run -d --name np -p 8080:8080 nullpaste:ci
+          for i in $(seq 1 20); do
+            curl -fsS -o /dev/null http://localhost:8080/static/index.html && exit 0
+            sleep 0.5
+          done
+          docker logs np
+          exit 1
 
   cross-build:
     runs-on: ubuntu-latest
-    needs: build
+    needs: test
     strategy:
       matrix:
-        go-version: ['1.24']
         target:
-          - os: linux
-            arch: amd64
-          - os: linux
-            arch: arm64
-          - os: windows
-            arch: amd64
-          - os: darwin
-            arch: amd64
-          - os: darwin
-            arch: arm64
+          - { os: linux, arch: amd64 }
+          - { os: linux, arch: arm64 }
+          - { os: windows, arch: amd64 }
+          - { os: darwin, arch: amd64 }
+          - { os: darwin, arch: arm64 }
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
-
-      - name: Download dependencies
-        run: go mod tidy
-
+          go-version-file: go.mod
       - name: Build
         env:
+          CGO_ENABLED: "0"
           GOOS: ${{ matrix.target.os }}
           GOARCH: ${{ matrix.target.arch }}
-        run: |
-          ext=""
-          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
-          go build -o nullpaste-${GOOS}-${GOARCH}${ext} ./cmd/nullpaste
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nullpaste-${{ matrix.target.os }}-${{ matrix.target.arch }}
-          path: nullpaste-*
+        run: go build -trimpath -o /dev/null ./cmd/nullpaste
