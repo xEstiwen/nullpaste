@@ -7,11 +7,11 @@ import (
 )
 
 type Config struct {
-	Addr        string
-	DBPath      string
-	MaxBytes    int64
-	DefaultTTL  time.Duration
-	GCInterval  time.Duration
+	Addr       string
+	DBPath     string
+	MaxBytes   int64
+	DefaultTTL time.Duration
+	GCInterval time.Duration
 }
 
 func Load() *Config {
