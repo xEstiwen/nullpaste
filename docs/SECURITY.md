@@ -52,7 +52,7 @@ Nullpaste does **not** protect against:
 | Confidentiality | AES-GCM 256-bit, key never transmitted |
 | Integrity | AES-GCM authentication tag, tampering detected |
 | Forward secrecy | Not provided — compromise reveals all pastes |
-| Deniability | Two ciphertexts (real + decoy), server cannot distinguish |
+| Duress password | Two ciphertexts (real + decoy). Not deniable against the server operator, see [CRYPTO.md](CRYPTO.md#known-limitations-of-the-duress-mode) |
 | KDF strength | PBKDF2-SHA256, 600,000 iterations (OWASP 2023) |
 | Key wrapping | AES-KW (NIST SP 800-38F) |
 
