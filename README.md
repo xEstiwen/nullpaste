@@ -3,14 +3,14 @@
 [![CI](https://github.com/xEstiwen/nullpaste/actions/workflows/ci.yml/badge.svg)](https://github.com/xEstiwen/nullpaste/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
-> Zero-knowledge pastebin with plausible deniability built in.
+> Zero-knowledge pastebin with a duress password.
 
 Content is encrypted in your browser using AES-GCM before it ever touches the server. The server stores encrypted blobs and metadata (timestamps, burn flags) — it **cannot read the actual content**, it **never sees encryption keys or passwords**, and it has **no way to decrypt** what it stores. A unique **duress password** feature provides deniable encryption: enter one password to reveal the real paste, another to reveal a decoy. To a server or network observer, both look identical.
 
 ## Features
 
 - **Zero-knowledge architecture** — encryption/decryption happens entirely in the browser via Web Crypto API. The server stores only encrypted blobs, never plaintext.
-- **Duress / deniable encryption** — optionally set a second password and separate decoy content. The server cannot distinguish which password was used or which content is "real".
+- **Duress password** — optionally set a second password and separate decoy content. Entering it shows the decoy instead of the real paste. This protects against someone who looks over your shoulder or demands the password, but not against the server operator: the server can see that a decoy exists and ciphertext sizes are not padded. See [known limitations](docs/CRYPTO.md#known-limitations-of-the-duress-mode).
 - **Burn after read** — the first successful read claims the paste atomically and the server discards the ciphertext. Concurrent readers get `410 Gone`.
 - **TTL auto-expiry** — choose from 5 minutes, 1 hour, 1 day, 7 days, 30 days, or never.
 - **Privacy-first** — no IP logging, no User-Agent storage, no analytics.

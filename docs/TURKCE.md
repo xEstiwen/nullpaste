@@ -1,6 +1,6 @@
 # Nullpaste
 
-> Sıfır-bilgi (zero-knowledge) paste servisi. Reddedilebilir şifreleme (plausible deniability).
+> Sıfır-bilgi (zero-knowledge) paste servisi. Zorlama (duress) şifresi: ikinci bir şifre gerçek içerik yerine sahte içeriği açar. Sunucu işletmecisine karşı inkâr edilebilirlik sağlamaz, ayrıntı için docs/CRYPTO.md.
 
 İçerik tarayıcıda AES-GCM ile şifrelenir, sunucuya sadece şifreli metin gider. Sunucu **içeriği okuyamaz**, **anahtarları/şifreleri görmez**, **çözemez**. 
 
